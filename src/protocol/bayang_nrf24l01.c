@@ -91,6 +91,8 @@ enum {
 #define CHANNEL_RTH         CHANNEL10
 #define CHANNEL_TO          CHANNEL11
 #define CHANNEL_EMGSTOP     CHANNEL12
+#define CHANNEL_ANAAUX1     CHANNEL11    // Override channel when Analog aux channels are enabled
+#define CHANNEL_ANAAUX2     CHANNEL12    // Override channel when Analog aux channels are enabled
 enum {
     Bayang_INIT1 = 0,
     Bayang_BIND2,
@@ -100,6 +102,7 @@ enum {
 static const char *const bay_opts[] = {
     _tr_noop("Telemetry"), _tr_noop("Off"), _tr_noop("On"), NULL,
     _tr_noop("Format"), _tr_noop("regular"), "X16-AH", "IRDRONE", NULL,
+    _tr_noop("Analog Aux"), _tr_noop("Off"), _tr_noop("On"), NULL,
     NULL
 };
 
@@ -107,6 +110,7 @@ static const char *const bay_opts[] = {
 enum {
     PROTOOPTS_TELEMETRY = 0,
     PROTOOPTS_FORMAT = 1,
+    PROTOOPTS_ANALOGAUX = 2,
     LAST_PROTO_OPT,
 };
 
@@ -124,6 +128,7 @@ ctassert(LAST_PROTO_OPT <= NUM_PROTO_OPTS, too_many_protocol_opts);
 static u16 counter;
 static u8 phase;
 static u8 telemetry;
+static u8 analogaux;
 static u8 packet[PACKET_SIZE];
 static u8 tx_power;
 static u8 txid[3];
@@ -206,15 +211,26 @@ static void send_packet(u8 bind)
                     packet[0] = 0xa6;
                     break;
         }
-        packet[1] = 0xfa;       // normal mode is 0xf7, expert 0xfa
+        if (analogaux) {
+            packet[1] = scale_channel(CHANNEL_ANAAUX1, 0, 0x3ff);
+        }
+        else {
+            packet[1] = 0xfa;       // normal mode is 0xf7, expert 0xfa
+        }
         packet[2] = GET_FLAG(CHANNEL_FLIP, 0x08)
             | GET_FLAG(CHANNEL_HEADLESS, 0x02)
             | GET_FLAG(CHANNEL_RTH, 0x01)
             | GET_FLAG(CHANNEL_VIDEO, 0x10)
             | GET_FLAG(CHANNEL_PICTURE, 0x20);
-        packet[3] = GET_FLAG(CHANNEL_INVERTED, 0x80)
-            | GET_FLAG(CHANNEL_TO, 0x20)
-		    | GET_FLAG(CHANNEL_EMGSTOP, 0x04);
+        if (analogaux) {
+            // Disable Take-off and Emergency Stop and use for analog aux channels
+            packet[3] = GET_FLAG(CHANNEL_INVERTED, 0x80);
+        }
+        else {
+            packet[3] = GET_FLAG(CHANNEL_INVERTED, 0x80)
+                | GET_FLAG(CHANNEL_TO, 0x20)
+		            | GET_FLAG(CHANNEL_EMGSTOP, 0x04);
+        }
         chanval.value = scale_channel(CHANNEL1, 0x3ff, 0);      // aileron
         packet[4] = chanval.bytes.msb + DYNTRIM(chanval.value);
         packet[5] = chanval.bytes.lsb;
@@ -232,7 +248,12 @@ static void send_packet(u8 bind)
     switch (Model.proto_opts[PROTOOPTS_FORMAT]) {
             case FORMAT_REGULAR:
                 packet[12] = txid[2];
-                packet[13] = 0x0a;
+                if (analogaux) {
+                    packet[13] = scale_channel(CHANNEL_ANAAUX2, 0, 0x3ff);
+                }
+                else {
+                    packet[13] = 0x0a;
+                }
                 break;
             case FORMAT_X16_AH:
                 packet[12] = 0x00;
@@ -526,6 +547,9 @@ static void initialize()
     last_telemetry_count = 0;
     telemetry_count = 0;
     telemetry = Model.proto_opts[PROTOOPTS_TELEMETRY];
+    
+    // Enable analog aux channels
+    analogaux = Model.proto_opts[PROTOOPTS_ANALOGAUX];
 
     // set some initial values to show nothing has been received
     if (telemetry)

@@ -179,8 +179,14 @@ static void send_packet(u8 bind)
     } chanval;
 
     if (bind) {
-        if (telemetry)
-            packet[0] = 0xa3;
+        if (telemetry) {
+            if (analogaux)
+                packet[0] = 0xa1;
+            else
+                packet[0] = 0xa3;
+        }
+        else if (analogaux)
+            packet[0] = 0xa2;
         else
             packet[0] = 0xa4;
 

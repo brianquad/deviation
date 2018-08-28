@@ -218,7 +218,7 @@ static void send_packet(u8 bind)
                     break;
         }
         if (analogaux) {
-            packet[1] = scale_channel(CHANNEL_ANAAUX1, 0, 0x3ff);
+            packet[1] = scale_channel(CHANNEL_ANAAUX1, 0, 0xff);
         }
         else {
             packet[1] = 0xfa;       // normal mode is 0xf7, expert 0xfa
@@ -255,7 +255,7 @@ static void send_packet(u8 bind)
             case FORMAT_REGULAR:
                 packet[12] = txid[2];
                 if (analogaux) {
-                    packet[13] = scale_channel(CHANNEL_ANAAUX2, 0, 0x3ff);
+                    packet[13] = scale_channel(CHANNEL_ANAAUX2, 0, 0xff);
                 }
                 else {
                     packet[13] = 0x0a;

@@ -82,6 +82,8 @@ enum {
     CHANNEL10,                  // Return To Home
     CHANNEL11,                  // Take Off/Landing
     CHANNEL12,                  // Emg. stop
+    CHANNEL13,                  // Analog Aux1
+    CHANNEL14,                  // Analog Aux2
 };
 #define CHANNEL_INVERTED    CHANNEL5    // inverted flight on Floureon H101
 #define CHANNEL_FLIP        CHANNEL6
@@ -91,8 +93,8 @@ enum {
 #define CHANNEL_RTH         CHANNEL10
 #define CHANNEL_TO          CHANNEL11
 #define CHANNEL_EMGSTOP     CHANNEL12
-#define CHANNEL_ANAAUX1     CHANNEL11    // Override channel when Analog aux channels are enabled
-#define CHANNEL_ANAAUX2     CHANNEL12    // Override channel when Analog aux channels are enabled
+#define CHANNEL_ANAAUX1     CHANNEL13
+#define CHANNEL_ANAAUX2     CHANNEL14
 enum {
     Bayang_INIT1 = 0,
     Bayang_BIND2,
@@ -228,15 +230,9 @@ static void send_packet(u8 bind)
             | GET_FLAG(CHANNEL_RTH, 0x01)
             | GET_FLAG(CHANNEL_VIDEO, 0x10)
             | GET_FLAG(CHANNEL_PICTURE, 0x20);
-        if (analogaux) {
-            // Disable Take-off and Emergency Stop and use for analog aux channels
-            packet[3] = GET_FLAG(CHANNEL_INVERTED, 0x80);
-        }
-        else {
-            packet[3] = GET_FLAG(CHANNEL_INVERTED, 0x80)
-                | GET_FLAG(CHANNEL_TO, 0x20)
-		            | GET_FLAG(CHANNEL_EMGSTOP, 0x04);
-        }
+        packet[3] = GET_FLAG(CHANNEL_INVERTED, 0x80)
+            | GET_FLAG(CHANNEL_TO, 0x20)
+            | GET_FLAG(CHANNEL_EMGSTOP, 0x04);
         chanval.value = scale_channel(CHANNEL1, 0x3ff, 0);      // aileron
         packet[4] = chanval.bytes.msb + DYNTRIM(chanval.value);
         packet[5] = chanval.bytes.lsb;
@@ -585,9 +581,9 @@ const void *Bayang_Cmds(enum ProtoCmds cmd)
         initialize();
         return 0;
     case PROTOCMD_NUMCHAN:
-        return (void *) 12L;
+        return (void *) (analogaux ? 14L : 12L);
     case PROTOCMD_DEFAULT_NUMCHAN:
-        return (void *) 12L;
+        return (void *) (analogaux ? 14L : 12L);
     case PROTOCMD_CURRENT_ID:
         return Model.fixed_id ? (void *) ((unsigned long) Model.
                                           fixed_id) : 0;
